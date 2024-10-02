@@ -4,6 +4,7 @@ using SatisfactorySaveNet.Abstracts.Model.Properties;
 using SatisfactorySaveNet.Abstracts.Model.Typed;
 using System;
 using System.Collections.Frozen;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using DateTime = SatisfactorySaveNet.Abstracts.Model.Typed.DateTime;
@@ -63,7 +64,7 @@ public class TypedDataSerializer : ITypedDataSerializer
             nameof(FICFrameRange) => DeserializeFICFrameRange(reader),
             nameof(IntPoint) => DeserializeIntPoint(reader),
             nameof(FINGPUT1BufferPixel) => DeserializeFINGPUT1BufferPixel(reader),
-            nameof(ClientIdentityInfo) => DeserializeClientIdentityInfo(reader, binarySize),
+            nameof(ClientIdentityInfo) => DeserializeClientIdentityInfo(reader),
             //ToDo: All implemented?
 
             //nameof(InventoryStack) => DeserializeInventoryStack(reader, header),
@@ -111,18 +112,26 @@ public class TypedDataSerializer : ITypedDataSerializer
         };
     }
 
-    private ClientIdentityInfo DeserializeClientIdentityInfo(BinaryReader reader, int binarySize)
+    private ClientIdentityInfo DeserializeClientIdentityInfo(BinaryReader reader)
     {
-        var value = _stringSerializer.Deserialize(reader);
+        var offlineId = _stringSerializer.Deserialize(reader);
 
-        if (binarySize - 4 - value.Length > 0)
+        var accountIdsCount = reader.ReadInt32();
+        var accounts = new Dictionary<AccountType, byte[]>(accountIdsCount);
+
+        for (var i = 0; i < accountIdsCount; i++)
         {
-            _ = reader.ReadBytes(binarySize - 4 - value.Length - 1);
+            var accountType = (AccountType) reader.ReadByte();
+            var idSize = reader.ReadInt32();
+            var idBytes = reader.ReadBytes(idSize);
+
+            accounts.Add(accountType, idBytes);
         }
 
         return new ClientIdentityInfo
         {
-            Value = value
+            OfflineId = offlineId,
+            Accounts = accounts
         };
     }
 
